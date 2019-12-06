@@ -1,4 +1,6 @@
 #include "../../src/Template/Experiments/IOHprofiler_experimenter.hpp"
+#include <algorithm>
+#include <functional>
 
 IOHprofiler_random random_generator(1);
 static int budget_scale = 100;
@@ -13,13 +15,22 @@ std::vector<int> Initialization(int dimension) {
   return x;
 };
 
+std::vector<int> calculateDirection(int ox, std::vector<int> pB, std::vector<int> solution){
+    std::vector<int> v;
+    v.reserve(solution.size());
+    for(int i = 0; i < solution.size(); i++){
+        v[i] = ox * random_generator.IOHprofiler_uniform_rand() * std::abs(pB[i] - solution[i]);
+    }
+    return v;
+}
+
 // Individual
 struct individual {
-	int personalBest; //f_best,i in algo
+	double personalBest; //f_best,i in algo
 	int oxygen;       //O_x_i,j in algo
-	int direction;    //v_i,j in algo
-	int solution;     //x_i,j in algo
-	int pbSolution;   //p_i in algo
+	std::vector<int> direction;    //v_i,j in algo
+	std::vector<int> solution;     //x_i,j in algo
+	std::vector<int> pbSolution;   //p_i in algo
 };
 
 struct group {
@@ -32,20 +43,20 @@ void Algo (std::shared_ptr<IOHprofiler_problem<int> > problem, std::shared_ptr<I
 {
 	int noIndividuals = 10;
 	int noGroups = 2;
-	int globalBest = 0;
+	std::vector<int> globalBest = 0;
 	int curGen = 0;
 	int maxGen = 10;
-	int prevSolution = 0;
+	std::vector<int> prevSolution = 0;
 	float QEFSum = 0.0;
 	float sum = 0.0;
 	float random;
-	
+
 	// Init individual
-	int pB;
+	double pB;
 	int ox;
-	int v;
-	int X;
-	
+	std::vector<int> v;
+	std::vector<int> X;
+
 	// Init groups
 	std::vector<individual> grp;
 	std::vector<group> groups;
@@ -53,42 +64,44 @@ void Algo (std::shared_ptr<IOHprofiler_problem<int> > problem, std::shared_ptr<I
 		group G = {grp, 0.0, (float)(1.0/(float)noGroups)};
 		groups.push_back(G);
 	}
-	
+
 	// Init	individuals and groups
-	for (int i = 0; i < problem->IOHprofiler_get_number_of_variables(); i++) 
+	for (int i = 0; i < problem->IOHprofiler_get_number_of_variables(); i++)
 	{
-		v = (int)(random_generator.IOHprofiler_uniform_rand() * 2);  // U(-v_max1, v_max1)
-		X = random_generator.IOHprofiler_uniform_rand() * 10 - 5; // x_{i,j}
+		v = Initialization(problem->IOHprofiler_get_number_of_variables()); // U(-v_max1, v_max1)
+		X = Initialization(problem->IOHprofiler_get_number_of_variables());   //random_generator.IOHprofiler_uniform_rand() * 10 - 5; // x_{i,j}
 		pB = problem->evaluate(X) // f(x_{i,j})
-		ox = pB*abs(X); // f(x_{i,j})*abs(x_{i,j})
+		ox = pB*abs(X); // f(x_{i,j})*abs(x_{i,j}) //TODO: abs(x) gaat niet werken hier
 		individual I = {pB, ox, v, X};
 		groups[i % noGroups].grp.push_back(I);
 	}
-	
+
 	// Init global best solution
 	if (noGroups > 0)
 		globalBest = groups[0].grp[0].solution;
-	
+
 	// Algorithm
 	while (curGen < maxGen && !problem->IOHprofiler_hit_optimal()) // Run for set amount of generations maxGen
 	{
-		for (uint j = 0; j < groups.size(); j++) 
+		for (uint j = 0; j < groups.size(); j++)
 		{
 			for (uint k = 0; k < groups[j].grp.size(); k++)
 			{
-				while ((groups[j].grp[k].oxygen > 0) || (problem->evaluate(groups[j].grp[k].solution) > groups[j].grp[k].personalBest))   
+				while ((groups[j].grp[k].oxygen > 0) || (problem->evaluate(groups[j].grp[k].solution) > groups[j].grp[k].personalBest)) // zoek zolang oxygen >0 en geen kleinere oplossing
 				{
-					if (problem->evaluate(groups[j].grp[k].solution) > groups[j].grp[k].personalBest)									
+					if (problem->evaluate(groups[j].grp[k].solution) < groups[j].grp[k].personalBest) // < want minimization
 					{
 						groups[j].grp[k].personalBest = problem->evaluate(groups[j].grp[k].solution);
 						groups[j].grp[k].pbSolution = groups[j].grp[k].solution;
-						if (problem->evaluate(groups[j].grp[k].solution) > problem->evaluate(globalBest))
+						if (problem->evaluate(groups[j].grp[k].solution) < problem->evaluate(globalBest)) // < want minimization
 						{
 							globalBest = groups[j].grp[k].solution;
 						}
 					}
-					groups[j].grp[k].direction = groups[j].grp[k].oxygen * /*TODO: uniform U(0,1)*/ (int)(random_generator.IOHprofiler_uniform_rand() * 2) * abs(groups[j].grp[k].pbSolution - groups[j].grp[k].solution); // Calculate direction
-					groups[j].grp[k].solution += groups[j].grp[k].direction; // Update position
+					//groups[j].grp[k].direction = groups[j].grp[k].oxygen * /*TODO: uniform U(0,1)*/ (int)(random_generator.IOHprofiler_uniform_rand()) * abs(groups[j].grp[k].pbSolution - groups[j].grp[k].solution); // Calculate direction
+					groups[j].grp[k].direction = calculateDirection(groups[j].grp[k].oxygen, groups[j].grp[k].pbSolution, groups[j].grp[k].solution);
+					//groups[j].grp[k].solution += groups[j].grp[k].direction; // Update position
+					std::transform(groups[j].grp[k].solution.begin(), groups[j].grp[k].solution.end(), groups[j].grp[k].direction.begin(), groups[j].grp[k].solution.begin(), std::plus<int>()); // updat pos
 					groups[j].grp[k].oxygen += ((problem->evaluate(groups[j].grp[k].solution) - problem->evaluate(prevSolution)) * abs(prevSolution + groups[j].grp[k].solution)); // Update oxygen
 					prevSolution = groups[j].grp[k].solution;
 				}
@@ -98,26 +111,26 @@ void Algo (std::shared_ptr<IOHprofiler_problem<int> > problem, std::shared_ptr<I
 			for (uint l = 0; l < groups.size(); l++)
 			{
 				QEFSum += groups[l].QEF;
-			} 
+			}
 			groups[j].joinProb = groups[j].QEF/QEFSum;
 		}
-		
+
 		for (uint j = 0; j < groups.size(); j++) // For each individual...
 		{
-			if (groups[j].grp.size() == 0) 
+			if (groups[j].grp.size() == 0)
 			{
 				/*groups[j].QEF = 0;
 				groups[j].joinProb = 0;*/
 				groups.erase(groups.begin() + j);
 				j--;
 			}
-			else 
+			else
 			{
-				for (uint k = 0; k < groups[j].grp.size(); k++) // ...in a group 
+				for (uint k = 0; k < groups[j].grp.size(); k++) // ...in a group
 				{
 					sum = 0.0;
 					random = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
-					for (uint m = 0; m < groups.size(); m++) 
+					for (uint m = 0; m < groups.size(); m++)
 					{
 						sum += groups[m].joinProb;
 						if (random <= sum) // Redistribute according to probability
@@ -199,7 +212,7 @@ void random_search(std::shared_ptr<IOHprofiler_problem<double> > problem, std::s
     for (int i = 0; i != problem->IOHprofiler_get_number_of_variables(); ++i) {
       x[i] = random_generator.IOHprofiler_uniform_rand() * 10 - 5;
     }
-  
+
     y = problem->evaluate(x);
     logger->write_line(problem->loggerCOCOInfo());
     count++;

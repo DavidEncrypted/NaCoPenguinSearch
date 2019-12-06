@@ -33,14 +33,14 @@ int main ()
 	float QEFSum = 0.0;
 	float sum = 0.0;
 	float random;
-	
+
 	// Init individual
 	int groupNumber;
 	int pB;
 	int ox;
 	int v;
 	int X;
-	
+
 	// Init groups
 	std::vector<individual> grp;
 	std::vector<group> groups;
@@ -48,9 +48,9 @@ int main ()
 		group G = {grp, 0.0, (float)(1.0/(float)noGroups)};
 		groups.push_back(G);
 	}
-	
+
 	// Init	individuals and groups
-	for (int i = 0; i < noIndividuals; i++) 
+	for (int i = 0; i < noIndividuals; i++)
 	{
 		groupNumber = (i % noGroups);
 		pB = 0; // f(x_{i,j})
@@ -60,21 +60,21 @@ int main ()
 		individual I = {groupNumber, pB, ox, v, X};
 		groups[groupNumber].grp.push_back(I);
 	}
-	
+
 	// Init global best
 	if (noGroups > 0)
 		globalBest = groups[0].grp[0].solution;
-	
+
 	// Algorithm
 	while (curGen < maxGen) // Run for set amount of generations maxGen
 	{
-		for (uint j = 0; j < groups.size(); j++) 
+		for (uint j = 0; j < groups.size(); j++)
 		{
 			for (uint k = 0; k < groups[j].grp.size(); k++)
 			{
-				while ((groups[j].grp[k].oxygen > 0) || (f(groups[j].grp[k].solution) > groups[j].grp[k].personalBest))   
+				while ((groups[j].grp[k].oxygen > 0) || (f(groups[j].grp[k].solution) > groups[j].grp[k].personalBest))
 				{
-					if (f(groups[j].grp[k].solution) > groups[j].grp[k].personalBest)									
+					if (f(groups[j].grp[k].solution) > groups[j].grp[k].personalBest)
 					{
 						groups[j].grp[k].personalBest = f(groups[j].grp[k].solution);
 						groups[j].grp[k].pbSolution = groups[j].grp[k].solution;
@@ -94,26 +94,26 @@ int main ()
 			for (uint l = 0; l < groups.size(); l++)
 			{
 				QEFSum += groups[l].QEF;
-			} 
+			}
 			groups[j].joinProb = groups[j].QEF/QEFSum;
 		}
-		
+
 		for (uint j = 0; j < groups.size(); j++) // For each individual...
 		{
-			if (groups[j].grp.size() == 0) 
+			if (groups[j].grp.size() == 0)
 			{
 				/*groups[j].QEF = 0;
 				groups[j].joinProb = 0;*/
 				groups.erase(groups.begin() + j);
 				j--;
 			}
-			else 
+			else
 			{
-				for (uint k = 0; k < groups[j].grp.size(); k++) // ...in a group 
+				for (uint k = 0; k < groups[j].grp.size(); k++) // ...in a group
 				{
 					sum = 0.0;
 					random = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
-					for (uint m = 0; m < groups.size(); m++) 
+					for (uint m = 0; m < groups.size(); m++)
 					{
 						sum += groups[m].joinProb;
 						if (random <= sum) // Redistribute according to probability
