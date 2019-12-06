@@ -71,6 +71,7 @@ struct group {
 
 void penguinAlgorithm (std::shared_ptr<IOHprofiler_problem<double> > problem, std::shared_ptr<IOHprofiler_csv_logger> logger)
 {
+    logger->write_header();
 	int noIndividuals = 10;
 	int noGroups = 2;
 	std::vector<double> globalBest;
@@ -184,7 +185,7 @@ void penguinAlgorithm (std::shared_ptr<IOHprofiler_problem<double> > problem, st
 						if (random <= sum) // Redistribute according to probability
 						{
 							groups[m].grp.push_back(groups[j].grp[k]); // Add individual to new group
-							groups[j].grp.erase(grp.begin() + k); // Remove from old group
+							groups[j].grp.erase(groups[j].grp.begin() + k); // Remove from old group
 							break;
 						}
 					}
@@ -192,6 +193,8 @@ void penguinAlgorithm (std::shared_ptr<IOHprofiler_problem<double> > problem, st
 			}
 		}
 		curGen++;
+		//logger->write_line(problem->loggerInfo());
+		logger->write_line(problem->loggerCOCOInfo());
 	}
 }
 
