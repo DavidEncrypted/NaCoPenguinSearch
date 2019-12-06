@@ -27,7 +27,7 @@ std::vector<int> calculateDirection(int ox, std::vector<int> pB, std::vector<int
 // Individual
 struct individual {
 	double personalBest; //f_best,i in algo
-	int oxygen;       //O_x_i,j in algo
+	double oxygen;       //O_x_i,j in algo
 	std::vector<int> direction;    //v_i,j in algo
 	std::vector<int> solution;     //x_i,j in algo
 	std::vector<int> pbSolution;   //p_i in algo
@@ -43,17 +43,17 @@ void Algo (std::shared_ptr<IOHprofiler_problem<int> > problem, std::shared_ptr<I
 {
 	int noIndividuals = 10;
 	int noGroups = 2;
-	std::vector<int> globalBest = 0;
+	std::vector<int> globalBest;
 	int curGen = 0;
 	int maxGen = 10;
-	std::vector<int> prevSolution = 0;
+	std::vector<int> prevSolution;
 	float QEFSum = 0.0;
 	float sum = 0.0;
 	float random;
 
 	// Init individual
 	double pB;
-	int ox;
+	double ox;
 	std::vector<int> v;
 	std::vector<int> X;
 
@@ -70,8 +70,8 @@ void Algo (std::shared_ptr<IOHprofiler_problem<int> > problem, std::shared_ptr<I
 	{
 		v = Initialization(problem->IOHprofiler_get_number_of_variables()); // U(-v_max1, v_max1)
 		X = Initialization(problem->IOHprofiler_get_number_of_variables());   //random_generator.IOHprofiler_uniform_rand() * 10 - 5; // x_{i,j}
-		pB = problem->evaluate(X) // f(x_{i,j})
-		ox = pB*abs(X); // f(x_{i,j})*abs(x_{i,j}) //TODO: abs(x) gaat niet werken hier
+		pB = problem->evaluate(X); // f(x_{i,j})
+		ox = pB*random_generator.IOHprofiler_uniform_rand() * 10; // f(x_{i,j})*abs(x_{i,j}) //TODO: abs(x) gaat niet werken hier
 		individual I = {pB, ox, v, X};
 		groups[i % noGroups].grp.push_back(I);
 	}
@@ -87,6 +87,7 @@ void Algo (std::shared_ptr<IOHprofiler_problem<int> > problem, std::shared_ptr<I
 		{
 			for (uint k = 0; k < groups[j].grp.size(); k++)
 			{
+                prevSolution = groups[j].grp[k].solution; // make current solution prev solution at the start of evaluation for each individual
 				while ((groups[j].grp[k].oxygen > 0) || (problem->evaluate(groups[j].grp[k].solution) > groups[j].grp[k].personalBest)) // zoek zolang oxygen >0 en geen kleinere oplossing
 				{
 					if (problem->evaluate(groups[j].grp[k].solution) < groups[j].grp[k].personalBest) // < want minimization
@@ -102,7 +103,7 @@ void Algo (std::shared_ptr<IOHprofiler_problem<int> > problem, std::shared_ptr<I
 					groups[j].grp[k].direction = calculateDirection(groups[j].grp[k].oxygen, groups[j].grp[k].pbSolution, groups[j].grp[k].solution);
 					//groups[j].grp[k].solution += groups[j].grp[k].direction; // Update position
 					std::transform(groups[j].grp[k].solution.begin(), groups[j].grp[k].solution.end(), groups[j].grp[k].direction.begin(), groups[j].grp[k].solution.begin(), std::plus<int>()); // updat pos
-					groups[j].grp[k].oxygen += ((problem->evaluate(groups[j].grp[k].solution) - problem->evaluate(prevSolution)) * abs(prevSolution + groups[j].grp[k].solution)); // Update oxygen
+					groups[j].grp[k].oxygen += ((problem->evaluate(prevSolution) - problem->evaluate(groups[j].grp[k].solution)) * random_generator.IOHprofiler_uniform_rand()); // Update oxygen
 					prevSolution = groups[j].grp[k].solution;
 				}
 				groups[j].QEF += groups[j].grp[k].oxygen; // Update QEF
