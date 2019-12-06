@@ -75,7 +75,7 @@ void penguinAlgorithm (std::shared_ptr<IOHprofiler_problem<double> > problem, st
 	std::vector<double> globalBest;
 	double globalBestEval = 1000.0;
 	int curGen = 0;
-	int maxGen = 10;
+	int maxGen = 5;
 	std::vector<double> prevSolution;
 	float QEFSum = 0.0;
 	float sum = 0.0;
@@ -97,7 +97,7 @@ void penguinAlgorithm (std::shared_ptr<IOHprofiler_problem<double> > problem, st
 	}
 
 	// Init	individuals and groups
-	for (int i = 0; i < problem->IOHprofiler_get_number_of_variables(); i++)
+	for (int i = 0; i < noIndividuals; i++)
 	{
 		v = InitializationDouble(problem->IOHprofiler_get_number_of_variables()); // U(-v_max1, v_max1)
 		X = InitializationDouble(problem->IOHprofiler_get_number_of_variables());   //random_generator.IOHprofiler_uniform_rand() * 10 - 5; // x_{i,j}
