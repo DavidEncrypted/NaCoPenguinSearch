@@ -24,6 +24,24 @@ std::vector<int> calculateDirection(int ox, std::vector<int> pB, std::vector<int
     return v;
 }
 
+double vectorDistance(std::vector<int> a, std::vector<int> b){
+    double result = 0.0;
+    for(int i = 0; i < a.size(); i++){
+        double distance = a[i] - b[i];
+        result += distance * distance;
+    }
+    return std::sqrt(result);
+}
+
+double zeroVectorDistance(std::vector<int> a){
+    std::vector<int> zero;
+    zero.reserve(a.size());
+    std::fill(zero.begin(), zero.end(), 0);
+    return vectorDistance(a, zero);
+}
+
+
+
 // Individual
 struct individual {
 	double personalBest; //f_best,i in algo
@@ -71,7 +89,7 @@ void Algo (std::shared_ptr<IOHprofiler_problem<int> > problem, std::shared_ptr<I
 		v = Initialization(problem->IOHprofiler_get_number_of_variables()); // U(-v_max1, v_max1)
 		X = Initialization(problem->IOHprofiler_get_number_of_variables());   //random_generator.IOHprofiler_uniform_rand() * 10 - 5; // x_{i,j}
 		pB = problem->evaluate(X); // f(x_{i,j})
-		ox = pB*random_generator.IOHprofiler_uniform_rand() * 10; // f(x_{i,j})*abs(x_{i,j}) //TODO: abs(x) gaat niet werken hier
+		ox = pB*zeroVectorDistance(X); // f(x_{i,j})*abs(x_{i,j}) //TODO: abs(x) gaat niet werken hier
 		individual I = {pB, ox, v, X};
 		groups[i % noGroups].grp.push_back(I);
 	}
@@ -103,7 +121,7 @@ void Algo (std::shared_ptr<IOHprofiler_problem<int> > problem, std::shared_ptr<I
 					groups[j].grp[k].direction = calculateDirection(groups[j].grp[k].oxygen, groups[j].grp[k].pbSolution, groups[j].grp[k].solution);
 					//groups[j].grp[k].solution += groups[j].grp[k].direction; // Update position
 					std::transform(groups[j].grp[k].solution.begin(), groups[j].grp[k].solution.end(), groups[j].grp[k].direction.begin(), groups[j].grp[k].solution.begin(), std::plus<int>()); // updat pos
-					groups[j].grp[k].oxygen += ((problem->evaluate(prevSolution) - problem->evaluate(groups[j].grp[k].solution)) * random_generator.IOHprofiler_uniform_rand()); // Update oxygen
+					groups[j].grp[k].oxygen += ((problem->evaluate(prevSolution) - problem->evaluate(groups[j].grp[k].solution)) * vectorDistance(groups[j].grp[k].solution, prevSolution)); // Update oxygen
 					prevSolution = groups[j].grp[k].solution;
 				}
 				groups[j].QEF += groups[j].grp[k].oxygen; // Update QEF
