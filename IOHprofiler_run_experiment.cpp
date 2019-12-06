@@ -71,10 +71,10 @@ struct group {
 
 void penguinAlgorithm (std::shared_ptr<IOHprofiler_problem<double> > problem, std::shared_ptr<IOHprofiler_csv_logger> logger)
 {
-    logger->write_header();
 	int noIndividuals = 10;
 	int noGroups = 2;
 	std::vector<double> globalBest;
+	double globalBestEval = 1000.0;
 	int curGen = 0;
 	int maxGen = 10;
 	std::vector<double> prevSolution;
@@ -102,19 +102,17 @@ void penguinAlgorithm (std::shared_ptr<IOHprofiler_problem<double> > problem, st
 	{
 		v = InitializationDouble(problem->IOHprofiler_get_number_of_variables()); // U(-v_max1, v_max1)
 		X = InitializationDouble(problem->IOHprofiler_get_number_of_variables());   //random_generator.IOHprofiler_uniform_rand() * 10 - 5; // x_{i,j}
-		    //    logger->write_line(problem->loggerInfo());
         pbsolution = X;
 		pB = problem->evaluate(X); // f(x_{i,j})
+		logger->write_line(problem->loggerCOCOInfo());
 		ox = pB*zeroVectorDistance(X); // f(x_{i,j})*abs(x_{i,j}) //TODO: abs(x) gaat niet werken hier
 		individual I = {pB, ox, v, X, pbsolution};
 		groups[i % noGroups].grp.push_back(I);
+		if(i == 0){// Init global best solution
+            globalBest = pbsolution;
+            globalBestEval = pB;
+		}
 	}
-
-
-
-	// Init global best solution
-	if (noGroups > 0)
-		globalBest = groups[0].grp[0].solution;
 
 	// Algorithm
 	while (curGen < maxGen && !problem->IOHprofiler_hit_optimal()) // Run for set amount of generations maxGen
@@ -124,35 +122,46 @@ void penguinAlgorithm (std::shared_ptr<IOHprofiler_problem<double> > problem, st
 			for (uint k = 0; k < groups[j].grp.size(); k++)
 			{
                 prevSolution = groups[j].grp[k].solution; // make current solution prev solution at the start of evaluation for each individual
-				while ((groups[j].grp[k].oxygen > 0) && (problem->evaluate(groups[j].grp[k].solution) > groups[j].grp[k].personalBest)) // zoek zolang oxygen >0 en geen kleinere oplossing
+                double prevSolutionEval = groups[j].grp[k].personalBest;
+				while ((groups[j].grp[k].oxygen > 0) && (prevSolutionEval >= groups[j].grp[k].personalBest)) // zoek zolang oxygen >0 en geen kleinere oplossing
 				{
-					if (problem->evaluate(groups[j].grp[k].solution) < groups[j].grp[k].personalBest) // < want minimization
-					{
-						groups[j].grp[k].personalBest = problem->evaluate(groups[j].grp[k].solution);
-						groups[j].grp[k].pbSolution = groups[j].grp[k].solution;
-						if (problem->evaluate(groups[j].grp[k].solution) < problem->evaluate(globalBest)) // < want minimization
-						{
-							globalBest = groups[j].grp[k].solution;
-						}
-					}
 					//groups[j].grp[k].direction = groups[j].grp[k].oxygen * /*TODO: uniform U(0,1)*/ (int)(random_generator.IOHprofiler_uniform_rand()) * abs(groups[j].grp[k].pbSolution - groups[j].grp[k].solution); // Calculate direction
 
 					//groups[j].grp[k].solution += groups[j].grp[k].direction; // Update position
 					//std::transform(groups[j].grp[k].solution.begin(), groups[j].grp[k].solution.end(), groups[j].grp[k].direction.begin(), groups[j].grp[k].solution.begin(), std::plus<double>()); // updat pos
 
-					if(groups[j].grp[k].solution.size() == groups[j].grp[k].direction.size()){
+
+					double evalSolution = problem->evaluate(groups[j].grp[k].solution);
+					logger->write_line(problem->loggerCOCOInfo());
+
+                    if (evalSolution < groups[j].grp[k].personalBest) // < want minimization
+					{
+						groups[j].grp[k].personalBest = evalSolution;
+						groups[j].grp[k].pbSolution = groups[j].grp[k].solution;
+						if (evalSolution < globalBestEval) // < want minimization
+						{
+							globalBest = groups[j].grp[k].solution;
+							globalBestEval = evalSolution;
+						}
+					}
+
+					groups[j].grp[k].oxygen += ((prevSolutionEval - evalSolution) * vectorDistance(groups[j].grp[k].solution, prevSolution)); // Update oxygen
+					std::cerr << groups[j].grp[k].oxygen << std::endl;
+
+                    if(groups[j].grp[k].solution.size() == groups[j].grp[k].direction.size()){ //calc next solution
                         for(int ii = 0; ii < groups[j].grp[k].solution.size(); ii++){
                             groups[j].grp[k].solution[ii] += groups[j].grp[k].direction[ii];
                         }
 					}else{
-                        std::cerr << "Solution en Direction verschillende grootte." << std::endl;
+                        std::cerr << "Solution and Direction are of different size." << std::endl;
                         break;
 					}
-					groups[j].grp[k].oxygen += ((problem->evaluate(prevSolution) - problem->evaluate(groups[j].grp[k].solution)) * vectorDistance(groups[j].grp[k].solution, prevSolution)); // Update oxygen
-					std::cerr << groups[j].grp[k].oxygen << std::endl;
+
                     groups[j].grp[k].direction = calculateDirection(groups[j].grp[k].oxygen, groups[j].grp[k].pbSolution, groups[j].grp[k].solution);
+
+
 					prevSolution = groups[j].grp[k].solution;
-					//std::cerr << groups[j].grp[k].oxygen;
+					prevSolutionEval = evalSolution;
 				}
 				groups[j].QEF += groups[j].grp[k].oxygen; // Update QEF
 			}
@@ -194,7 +203,7 @@ void penguinAlgorithm (std::shared_ptr<IOHprofiler_problem<double> > problem, st
 		}
 		curGen++;
 		//logger->write_line(problem->loggerInfo());
-		logger->write_line(problem->loggerCOCOInfo());
+		//logger->write_line(problem->loggerCOCOInfo());
 	}
 }
 
