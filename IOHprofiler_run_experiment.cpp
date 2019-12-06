@@ -9,7 +9,7 @@ std::vector<int> Initialization(int dimension) {
   std::vector<int> x;
   x.reserve(dimension);
   for (int i = 0; i != dimension; ++i) {
-      x.push_back((random_generator.IOHprofiler_uniform_rand() * 2));
+      x.push_back((int)(random_generator.IOHprofiler_uniform_rand() * 2));
   }
   return x;
 };
@@ -25,26 +25,30 @@ std::vector<double> InitializationDouble(int dimension) {
 
 std::vector<double> calculateDirection(double ox, std::vector<double> pB, std::vector<double> solution){
     std::vector<double> v;
-    v.reserve(solution.size());
+    //v.reserve(solution.size());
     for(int i = 0; i < solution.size(); i++){
-        v[i] = ox * random_generator.IOHprofiler_uniform_rand() * std::abs(pB[i] - solution[i]);
+        v.push_back(ox * random_generator.IOHprofiler_uniform_rand() * std::abs(pB[i] - solution[i]));
+        std::cerr << pB[i] << ' ' << solution[i] << std::endl;
     }
     return v;
 }
 
 double vectorDistance(std::vector<double> a, std::vector<double> b){
     double result = 0.0;
-    for(int i = 0; i < a.size(); i++){
-        double distance = a[i] - b[i];
-        result += distance * distance;
+    if(a.size() == b.size()){
+        for(int i = 0; i < a.size(); i++){
+            double distance = a[i] - b[i];
+            result += distance * distance;
+        }
     }
     return std::sqrt(result);
 }
 
 double zeroVectorDistance(std::vector<double> a){
     std::vector<double> zero;
-    zero.reserve(a.size());
-    std::fill(zero.begin(), zero.end(), 0);
+    for(int i = 0; i < a.size(); i++){
+        zero.push_back(0.0);
+    }
     return vectorDistance(a, zero);
 }
 
@@ -80,6 +84,7 @@ void penguinAlgorithm (std::shared_ptr<IOHprofiler_problem<double> > problem, st
 	// Init individual
 	double pB;
 	double ox;
+	std::vector<double> pbsolution;
 	std::vector<double> v;
 	std::vector<double> X;
 
@@ -96,10 +101,11 @@ void penguinAlgorithm (std::shared_ptr<IOHprofiler_problem<double> > problem, st
 	{
 		v = InitializationDouble(problem->IOHprofiler_get_number_of_variables()); // U(-v_max1, v_max1)
 		X = InitializationDouble(problem->IOHprofiler_get_number_of_variables());   //random_generator.IOHprofiler_uniform_rand() * 10 - 5; // x_{i,j}
-		        logger->write_line(problem->loggerInfo());
+		    //    logger->write_line(problem->loggerInfo());
+        pbsolution = X;
 		pB = problem->evaluate(X); // f(x_{i,j})
 		ox = pB*zeroVectorDistance(X); // f(x_{i,j})*abs(x_{i,j}) //TODO: abs(x) gaat niet werken hier
-		individual I = {pB, ox, v, X};
+		individual I = {pB, ox, v, X, pbsolution};
 		groups[i % noGroups].grp.push_back(I);
 	}
 
@@ -117,7 +123,7 @@ void penguinAlgorithm (std::shared_ptr<IOHprofiler_problem<double> > problem, st
 			for (uint k = 0; k < groups[j].grp.size(); k++)
 			{
                 prevSolution = groups[j].grp[k].solution; // make current solution prev solution at the start of evaluation for each individual
-				while ((groups[j].grp[k].oxygen > 0) || (problem->evaluate(groups[j].grp[k].solution) > groups[j].grp[k].personalBest)) // zoek zolang oxygen >0 en geen kleinere oplossing
+				while ((groups[j].grp[k].oxygen > 0) && (problem->evaluate(groups[j].grp[k].solution) > groups[j].grp[k].personalBest)) // zoek zolang oxygen >0 en geen kleinere oplossing
 				{
 					if (problem->evaluate(groups[j].grp[k].solution) < groups[j].grp[k].personalBest) // < want minimization
 					{
@@ -129,11 +135,23 @@ void penguinAlgorithm (std::shared_ptr<IOHprofiler_problem<double> > problem, st
 						}
 					}
 					//groups[j].grp[k].direction = groups[j].grp[k].oxygen * /*TODO: uniform U(0,1)*/ (int)(random_generator.IOHprofiler_uniform_rand()) * abs(groups[j].grp[k].pbSolution - groups[j].grp[k].solution); // Calculate direction
-					groups[j].grp[k].direction = calculateDirection(groups[j].grp[k].oxygen, groups[j].grp[k].pbSolution, groups[j].grp[k].solution);
+
 					//groups[j].grp[k].solution += groups[j].grp[k].direction; // Update position
-					std::transform(groups[j].grp[k].solution.begin(), groups[j].grp[k].solution.end(), groups[j].grp[k].direction.begin(), groups[j].grp[k].solution.begin(), std::plus<int>()); // updat pos
+					//std::transform(groups[j].grp[k].solution.begin(), groups[j].grp[k].solution.end(), groups[j].grp[k].direction.begin(), groups[j].grp[k].solution.begin(), std::plus<double>()); // updat pos
+
+					if(groups[j].grp[k].solution.size() == groups[j].grp[k].direction.size()){
+                        for(int ii = 0; ii < groups[j].grp[k].solution.size(); ii++){
+                            groups[j].grp[k].solution[ii] += groups[j].grp[k].direction[ii];
+                        }
+					}else{
+                        std::cerr << "Solution en Direction verschillende grootte." << std::endl;
+                        break;
+					}
 					groups[j].grp[k].oxygen += ((problem->evaluate(prevSolution) - problem->evaluate(groups[j].grp[k].solution)) * vectorDistance(groups[j].grp[k].solution, prevSolution)); // Update oxygen
+					std::cerr << groups[j].grp[k].oxygen << std::endl;
+                    groups[j].grp[k].direction = calculateDirection(groups[j].grp[k].oxygen, groups[j].grp[k].pbSolution, groups[j].grp[k].solution);
 					prevSolution = groups[j].grp[k].solution;
+					//std::cerr << groups[j].grp[k].oxygen;
 				}
 				groups[j].QEF += groups[j].grp[k].oxygen; // Update QEF
 			}
