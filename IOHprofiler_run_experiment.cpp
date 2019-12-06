@@ -5,18 +5,26 @@
 IOHprofiler_random random_generator(1);
 static int budget_scale = 100;
 
-
 std::vector<int> Initialization(int dimension) {
   std::vector<int> x;
   x.reserve(dimension);
   for (int i = 0; i != dimension; ++i) {
-      x.push_back((int)(random_generator.IOHprofiler_uniform_rand() * 2));
+      x.push_back((random_generator.IOHprofiler_uniform_rand() * 2));
   }
   return x;
 };
 
-std::vector<int> calculateDirection(int ox, std::vector<int> pB, std::vector<int> solution){
-    std::vector<int> v;
+std::vector<double> InitializationDouble(int dimension) {
+  std::vector<double> x;
+  x.reserve(dimension);
+  for (int i = 0; i != dimension; ++i) {
+      x.push_back((random_generator.IOHprofiler_uniform_rand() * 2));
+  }
+  return x;
+};
+
+std::vector<double> calculateDirection(double ox, std::vector<double> pB, std::vector<double> solution){
+    std::vector<double> v;
     v.reserve(solution.size());
     for(int i = 0; i < solution.size(); i++){
         v[i] = ox * random_generator.IOHprofiler_uniform_rand() * std::abs(pB[i] - solution[i]);
@@ -24,7 +32,7 @@ std::vector<int> calculateDirection(int ox, std::vector<int> pB, std::vector<int
     return v;
 }
 
-double vectorDistance(std::vector<int> a, std::vector<int> b){
+double vectorDistance(std::vector<double> a, std::vector<double> b){
     double result = 0.0;
     for(int i = 0; i < a.size(); i++){
         double distance = a[i] - b[i];
@@ -33,8 +41,8 @@ double vectorDistance(std::vector<int> a, std::vector<int> b){
     return std::sqrt(result);
 }
 
-double zeroVectorDistance(std::vector<int> a){
-    std::vector<int> zero;
+double zeroVectorDistance(std::vector<double> a){
+    std::vector<double> zero;
     zero.reserve(a.size());
     std::fill(zero.begin(), zero.end(), 0);
     return vectorDistance(a, zero);
@@ -46,9 +54,9 @@ double zeroVectorDistance(std::vector<int> a){
 struct individual {
 	double personalBest; //f_best,i in algo
 	double oxygen;       //O_x_i,j in algo
-	std::vector<int> direction;    //v_i,j in algo
-	std::vector<int> solution;     //x_i,j in algo
-	std::vector<int> pbSolution;   //p_i in algo
+	std::vector<double> direction;    //v_i,j in algo
+	std::vector<double> solution;     //x_i,j in algo
+	std::vector<double> pbSolution;   //p_i in algo
 };
 
 struct group {
@@ -57,14 +65,14 @@ struct group {
 	float joinProb;
 };
 
-void Algo (std::shared_ptr<IOHprofiler_problem<int> > problem, std::shared_ptr<IOHprofiler_csv_logger> logger)
+void penguinAlgorithm (std::shared_ptr<IOHprofiler_problem<double> > problem, std::shared_ptr<IOHprofiler_csv_logger> logger)
 {
 	int noIndividuals = 10;
 	int noGroups = 2;
-	std::vector<int> globalBest;
+	std::vector<double> globalBest;
 	int curGen = 0;
 	int maxGen = 10;
-	std::vector<int> prevSolution;
+	std::vector<double> prevSolution;
 	float QEFSum = 0.0;
 	float sum = 0.0;
 	float random;
@@ -72,8 +80,8 @@ void Algo (std::shared_ptr<IOHprofiler_problem<int> > problem, std::shared_ptr<I
 	// Init individual
 	double pB;
 	double ox;
-	std::vector<int> v;
-	std::vector<int> X;
+	std::vector<double> v;
+	std::vector<double> X;
 
 	// Init groups
 	std::vector<individual> grp;
@@ -86,13 +94,16 @@ void Algo (std::shared_ptr<IOHprofiler_problem<int> > problem, std::shared_ptr<I
 	// Init	individuals and groups
 	for (int i = 0; i < problem->IOHprofiler_get_number_of_variables(); i++)
 	{
-		v = Initialization(problem->IOHprofiler_get_number_of_variables()); // U(-v_max1, v_max1)
-		X = Initialization(problem->IOHprofiler_get_number_of_variables());   //random_generator.IOHprofiler_uniform_rand() * 10 - 5; // x_{i,j}
+		v = InitializationDouble(problem->IOHprofiler_get_number_of_variables()); // U(-v_max1, v_max1)
+		X = InitializationDouble(problem->IOHprofiler_get_number_of_variables());   //random_generator.IOHprofiler_uniform_rand() * 10 - 5; // x_{i,j}
+		        logger->write_line(problem->loggerInfo());
 		pB = problem->evaluate(X); // f(x_{i,j})
 		ox = pB*zeroVectorDistance(X); // f(x_{i,j})*abs(x_{i,j}) //TODO: abs(x) gaat niet werken hier
 		individual I = {pB, ox, v, X};
 		groups[i % noGroups].grp.push_back(I);
 	}
+
+
 
 	// Init global best solution
 	if (noGroups > 0)
@@ -244,7 +255,7 @@ void _run_experiment() {
   //IOHprofiler_experimenter<int> experimenter(configName,evolutionary_algorithm);
 
   /// An exmaple for BBOB suite.
-  IOHprofiler_experimenter<double> experimenter(configName, random_search);
+  IOHprofiler_experimenter<double> experimenter(configName, penguinAlgorithm);
   experimenter._set_independent_runs(10);
   experimenter._run();
 }
