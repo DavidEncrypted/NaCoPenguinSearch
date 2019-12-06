@@ -3,6 +3,7 @@
 IOHprofiler_random random_generator(1);
 static int budget_scale = 100;
 
+
 std::vector<int> Initialization(int dimension) {
   std::vector<int> x;
   x.reserve(dimension);
@@ -11,6 +12,128 @@ std::vector<int> Initialization(int dimension) {
   }
   return x;
 };
+
+// Individual
+struct individual {
+	int personalBest; //f_best,i in algo
+	int oxygen;       //O_x_i,j in algo
+	int direction;    //v_i,j in algo
+	int solution;     //x_i,j in algo
+	int pbSolution;   //p_i in algo
+};
+
+struct group {
+	std::vector<individual> grp;
+	float QEF;
+	float joinProb;
+};
+
+void Algo (std::shared_ptr<IOHprofiler_problem<int> > problem, std::shared_ptr<IOHprofiler_csv_logger> logger)
+{
+	int noIndividuals = 10;
+	int noGroups = 2;
+	int globalBest = 0;
+	int curGen = 0;
+	int maxGen = 10;
+	int prevSolution = 0;
+	float QEFSum = 0.0;
+	float sum = 0.0;
+	float random;
+	
+	// Init individual
+	int pB;
+	int ox;
+	int v;
+	int X;
+	
+	// Init groups
+	std::vector<individual> grp;
+	std::vector<group> groups;
+	for (int g = 0; g < noGroups; g++) {
+		group G = {grp, 0.0, (float)(1.0/(float)noGroups)};
+		groups.push_back(G);
+	}
+	
+	// Init	individuals and groups
+	for (int i = 0; i < problem->IOHprofiler_get_number_of_variables(); i++) 
+	{
+		v = (int)(random_generator.IOHprofiler_uniform_rand() * 2);  // U(-v_max1, v_max1)
+		X = random_generator.IOHprofiler_uniform_rand() * 10 - 5; // x_{i,j}
+		pB = problem->evaluate(X) // f(x_{i,j})
+		ox = pB*abs(X); // f(x_{i,j})*abs(x_{i,j})
+		individual I = {pB, ox, v, X};
+		groups[i % noGroups].grp.push_back(I);
+	}
+	
+	// Init global best solution
+	if (noGroups > 0)
+		globalBest = groups[0].grp[0].solution;
+	
+	// Algorithm
+	while (curGen < maxGen && !problem->IOHprofiler_hit_optimal()) // Run for set amount of generations maxGen
+	{
+		for (uint j = 0; j < groups.size(); j++) 
+		{
+			for (uint k = 0; k < groups[j].grp.size(); k++)
+			{
+				while ((groups[j].grp[k].oxygen > 0) || (problem->evaluate(groups[j].grp[k].solution) > groups[j].grp[k].personalBest))   
+				{
+					if (problem->evaluate(groups[j].grp[k].solution) > groups[j].grp[k].personalBest)									
+					{
+						groups[j].grp[k].personalBest = problem->evaluate(groups[j].grp[k].solution);
+						groups[j].grp[k].pbSolution = groups[j].grp[k].solution;
+						if (problem->evaluate(groups[j].grp[k].solution) > problem->evaluate(globalBest))
+						{
+							globalBest = groups[j].grp[k].solution;
+						}
+					}
+					groups[j].grp[k].direction = groups[j].grp[k].oxygen * /*TODO: uniform U(0,1)*/ (int)(random_generator.IOHprofiler_uniform_rand() * 2) * abs(groups[j].grp[k].pbSolution - groups[j].grp[k].solution); // Calculate direction
+					groups[j].grp[k].solution += groups[j].grp[k].direction; // Update position
+					groups[j].grp[k].oxygen += ((problem->evaluate(groups[j].grp[k].solution) - problem->evaluate(prevSolution)) * abs(prevSolution + groups[j].grp[k].solution)); // Update oxygen
+					prevSolution = groups[j].grp[k].solution;
+				}
+				groups[j].QEF += groups[j].grp[k].oxygen; // Update QEF
+			}
+			QEFSum = 0.0;
+			for (uint l = 0; l < groups.size(); l++)
+			{
+				QEFSum += groups[l].QEF;
+			} 
+			groups[j].joinProb = groups[j].QEF/QEFSum;
+		}
+		
+		for (uint j = 0; j < groups.size(); j++) // For each individual...
+		{
+			if (groups[j].grp.size() == 0) 
+			{
+				/*groups[j].QEF = 0;
+				groups[j].joinProb = 0;*/
+				groups.erase(groups.begin() + j);
+				j--;
+			}
+			else 
+			{
+				for (uint k = 0; k < groups[j].grp.size(); k++) // ...in a group 
+				{
+					sum = 0.0;
+					random = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+					for (uint m = 0; m < groups.size(); m++) 
+					{
+						sum += groups[m].joinProb;
+						if (random <= sum) // Redistribute according to probability
+						{
+							groups[m].grp.push_back(groups[j].grp[k]); // Add individual to new group
+							groups[j].grp.erase(grp.begin() + k); // Remove from old group
+							break;
+						}
+					}
+				}
+			}
+		}
+		curGen++;
+	}
+}
+
 
 int mutation(std::vector<int> &x, double mutation_rate) {
   int result = 0;
@@ -98,4 +221,3 @@ int main(){
   _run_experiment();
   return 0;
 }
-
