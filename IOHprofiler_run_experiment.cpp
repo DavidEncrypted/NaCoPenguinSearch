@@ -28,7 +28,6 @@ std::vector<double> calculateDirection(double ox, std::vector<double> pB, std::v
     //v.reserve(solution.size());
     for(int i = 0; i < solution.size(); i++){
         v.push_back(ox * random_generator.IOHprofiler_uniform_rand() * std::abs(pB[i] - solution[i]));
-        std::cerr << pB[i] << ' ' << solution[i] << std::endl;
     }
     return v;
 }
@@ -146,7 +145,6 @@ void penguinAlgorithm (std::shared_ptr<IOHprofiler_problem<double> > problem, st
 					}
 
 					groups[j].grp[k].oxygen += ((prevSolutionEval - evalSolution) * vectorDistance(groups[j].grp[k].solution, prevSolution)); // Update oxygen
-					std::cerr << groups[j].grp[k].oxygen << std::endl;
 
                     if(groups[j].grp[k].solution.size() == groups[j].grp[k].direction.size()){ //calc next solution
                         for(int ii = 0; ii < groups[j].grp[k].solution.size(); ii++){
